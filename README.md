@@ -45,7 +45,11 @@ There is also a row in **Settings → General** with the current permission stat
 
 ### How it decides a turn finished
 
-It watches the session-list projection and fires on each row's `running` **true → false** edge. It deliberately does *not* use the runtime's `completed` flag: that flag means "finished while NOT selected", so with one conversation in use it never lit up and notifications appeared to fire once and then never again.
+It fires on a session's `running` **true → false** edge, fed by **two** signals: the session's own snapshot (authoritative on 0.2.x, where `running` lives on the session object) and the session-list row (the live bit on 0.1.x). A short per-session cooldown collapses the pair into one notice.
+
+It deliberately does *not* use the older `completed` flag: that flag meant "finished while NOT selected", so with one conversation in use it never lit up and notifications appeared to fire once and never again.
+
+**Settings → General** shows `Watching N session(s) · R running · K notified`, which makes "is it actually watching?" answerable at a glance.
 
 ### Compatibility
 
@@ -109,7 +113,11 @@ dsh plugin --profile web add ./dsh-notify
 
 ### 判定依据
 
-订阅会话列表，按每行 `running` 的 **true → false** 边沿触发。刻意不用运行时的 `completed` 标志：那个标志的语义是"**你没在看时才置位**"，导致一次只用一个会话时永远不弹（历史 bug）。
+按会话 `running` 的 **true → false** 边沿触发，信号来自**两处**：会话自身的快照（0.2.x 的权威来源，`running` 挂在会话对象上）与列表行（0.1.x 的实时位）。两者若几乎同时报告同一次完成，会用按会话的冷却窗口合并成一条通知。
+
+刻意不用旧的 `completed` 标志：它的语义是"**你没在看时才置位**"，会导致一次只用一个会话时永远不弹（历史 bug）。
+
+**设置 → 通用** 会显示 `已监听 N 个会话 · 运行中 R · 已通知 K 次`，可一眼确认它是否真的在跟踪。
 
 ### 兼容性
 

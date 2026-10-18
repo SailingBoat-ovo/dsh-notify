@@ -1,0 +1,4 @@
+# dsh-notify bundle patch: adds the turn-completion system-notification plugin.
+- insert:
+    - id: dsh-notify
+      name: 'dsh-notify'

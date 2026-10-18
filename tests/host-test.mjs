@@ -5,8 +5,7 @@ const check = (l, c) => { const ok = !!c; if (!ok) failed += 1; console.log(`${o
 
 // ---- 1) the declared service names must be the real ones ----
 console.log("inject:", JSON.stringify(inject));
-check("injects `sessions` (the real service name, plural)", inject.includes("sessions"));
-check("does NOT inject a non-existent `session`", !inject.includes("session"));
+check("does not require the sessions service (the event rides ctx)", !inject.includes("sessions"));
 check("injects webServer for the feed route", inject.includes("webServer"));
 
 // ---- 2) completionOf: only turn/end counts, and it carries the right fields ----
@@ -45,7 +44,8 @@ const routes = [];
 let listener = null;
 const ctx = {
   effect: (fn) => { fn(); return () => {}; },
-  sessions: { on: (event, fn) => { if (event === "session/event") listener = fn; return () => {}; } },
+  // `session/event` rides the cordis event bus: ctx.on, NOT ctx.sessions.on.
+  on: (event, fn) => { if (event === "session/event") listener = fn; return () => {}; },
   webServer: { register: (route) => { routes.push(route); return () => {}; } },
 };
 apply(ctx);

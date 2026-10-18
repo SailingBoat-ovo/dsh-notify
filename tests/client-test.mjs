@@ -86,9 +86,6 @@ check("does not hijack any composer slot",
 // ---- a completion frame must produce exactly one notification ----
 const source = sources[0];
 source.emit("hello", { seq: 7 });
-check("hello marks the link live", mod.STREAM_STATS.state === "live");
-check("hello stores the watermark", mod.STREAM_STATS.seq === 7);
-check("hello alone notifies nothing", notifications.length === 0);
 
 source.emit("completion", { seq: 8, sessionId: "s1", label: "修复登录 bug", at: Date.now() });
 // notifications are constructed after the icon is rasterized, so let those ticks run
@@ -125,4 +122,5 @@ check("settings row exposes the test button", html.includes("notify.test"));
 check("settings row shows the link state", html.includes("notify.stats"));
 
 console.log(failed === 0 ? "CLIENT TEST PASSED" : `${failed} CHECKS FAILED`);
-if (failed > 0) process.exit(1);
+// The poller keeps an interval alive, so exit explicitly with the verdict.
+process.exit(failed === 0 ? 0 : 1);

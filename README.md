@@ -10,54 +10,54 @@ System notifications for **DeepSeek Harness (DSH)**: when a session's AI turn fi
 
 ## English
 
-### What it does
+### How it works (and why it is built this way)
 
-- Fires **whenever any session's AI turn ends** — not only for the session you are looking at.
-- Title `任务完成` (or `任务出错` when the turn failed); the body names the session, so the notice answers "which task finished".
-- Icon: the **DeepSeek whale**, inlined into the bundle and rasterized to a PNG in the browser (no host route needed, so it also works inside the desktop app).
-- **Click** the notification to focus the window and jump to that session.
-- De-duplicated: a re-render never re-fires; a later completion of the same session notifies again. Subagent child runs are skipped.
+The **host** subscribes to the session log's own `session/event` stream and reacts to `turn/end`; the **browser** receives those completions over Server-Sent Events and raises the notification.
+
+This split is deliberate. Earlier versions tried to detect completion in the browser by reading client-side projections, and both attempts failed silently:
+
+| Attempt | Why it never fired |
+|---|---|
+| `sessions.list.byId[*].running` | DSH 0.2.x keeps `running` on the session object and no longer refreshes the list row live, so no `true → false` edge ever appeared. |
+| `sessions.binding(id).session` | `binding()` returns `this.scopes.get(id)?.binding` — it only answers for an **already-retained** scope, so a root-level plugin got `undefined` for every session. |
+
+Both are private internals. `session/event` is the documented seam — the `dsh-session` package documents *"Persistence is a plugin concern (subscribe to `session/event`, drain on `session/flush`)"* — and `turn/end` is a stable type in the session log's own event vocabulary. The host also has the durable session header, so titles come from the source of truth rather than from a UI projection.
+
+### Behaviour
+
+- Fires for **every** finished turn, in any session.
+- Title `任务完成` (`任务出错` when the turn failed); body names the session.
+- Icon: the **DeepSeek whale**, served by the host at `/dsh-notify/whale.svg` and rasterized to a PNG in the browser (Windows toasts prefer a bitmap).
+- **Click** the notice to ask the shell to focus that session.
+- One `EventSource` handles reconnection on its own.
 
 ### Install
 
 ```sh
-# web surface
 dsh plugin --profile web add github:SailingBoat-ovo/dsh-notify
-
-# desktop app
 dsh plugin --profile desktop add github:SailingBoat-ovo/dsh-notify
 ```
 
-Or clone and install by path:
+**Restart DSH afterwards** — the node half is loaded at boot, so a page refresh alone is not enough.
 
-```sh
-git clone https://github.com/SailingBoat-ovo/dsh-notify
-dsh plugin --profile web add ./dsh-notify
+### Diagnosing
+
+**Settings → General** shows the permission state, a **"Send a test notification"** button, and the live link state:
+
+```
+Link: live · 3 completion event(s) received
 ```
 
-**Restart DSH afterwards** (restart the app on desktop).
+- Test button works but the counter stays 0 → the host half is not loaded (restart DSH).
+- Counter grows but no toast → the OS/browser is suppressing notifications.
 
-### Permission
+### Endpoints
 
-Browsers require a user gesture before showing the permission prompt, so on first use DSH shows its own dialog (on the app shell's overlay layer) and the button inside it triggers the browser prompt. Once granted you are never asked again. `denied` is handled explicitly: the dialog explains how to restore the permission instead of offering a button that cannot work.
-
-There is also a row in **Settings → General** with the current permission state and a **"Send a test notification"** button — the fastest way to tell "not loaded" apart from "blocked by the OS".
-
-### How it decides a turn finished
-
-It fires on a session's `running` **true → false** edge, fed by **two** signals: the session's own snapshot (authoritative on 0.2.x, where `running` lives on the session object) and the session-list row (the live bit on 0.1.x). A short per-session cooldown collapses the pair into one notice.
-
-It deliberately does *not* use the older `completed` flag: that flag meant "finished while NOT selected", so with one conversation in use it never lit up and notifications appeared to fire once and never again.
-
-**Settings → General** shows `Watching N session(s) · R running · K notified`, which makes "is it actually watching?" answerable at a glance.
-
-### Compatibility
-
-Works on DSH `0.1.x` (web) and `0.2.1+` (desktop). Pitfalls found while porting to 0.2.x:
-
-1. `dsh.client.inject` may only name **plugin packages that actually exist**. 0.2.x removed `dsh-client-runtime` and `dsh-client-ui-primitives` (the latter is a seed module, not a plugin row); naming them silently kept the client half out of the boot graph — the plugin looked installed but never ran.
-2. Declare `remote` **and** `remote.session` in `inject` if any service method you call touches `remote.session` — cordis rebinds `this.ctx` to the **caller** when invoking a traced service.
-3. The desktop renderer lives on the `dsh-app://` origin, so host-registered HTTP routes are unreachable; bundle assets instead of fetching them.
+| Path | Purpose |
+|---|---|
+| `GET /dsh-notify/stream` | `text/event-stream` of completion frames |
+| `GET /dsh-notify/completions` | recent completions + current sequence watermark |
+| `GET /dsh-notify/whale.svg` | the whale mark |
 
 ### Tests
 
@@ -66,66 +66,64 @@ npm install
 npm test
 ```
 
-The tests load the real client bundle with a fake DOM/Notification and assert: slot registration, priming (no retroactive notice), per-conversation notifications, inline icon data URL, no duplicates, subagent skip, click-to-open, denied permission, and row-shape tolerance (`id` / `sessionId`).
+`tests/host-test.mjs` (29 assertions) covers the event mapping (only `turn/end` counts; title/cwd/id fallbacks; failure text), the feed (monotonic seq, history cap, detach), and every route including the SSE handshake, a pushed frame, and detach on close. `tests/client-test.mjs` (20 assertions) covers the two-slot registration, the stream wiring, notification content, click-to-open, denied permission, and the settings row.
 
 ### License
 
-MIT — see [LICENSE](LICENSE). Third-party marks are described in [NOTICE.md](NOTICE.md).
+MIT — see [LICENSE](LICENSE). Third-party marks: [NOTICE.md](NOTICE.md).
 
 ---
 
 ## 中文
 
-### 它做什么
+### 工作原理（以及为什么这样设计）
 
-- **任何会话**的 AI 回复结束时都会弹通知，不只是你正在看的那个。
-- 标题 `任务完成`（该轮失败则为 `任务出错`），正文带会话标题 —— 直接回答"哪个任务完成了"。
-- 图标是 **DeepSeek 鲸鱼**：已内联进 bundle 并由浏览器栅格化成 PNG，不依赖宿主路由，所以桌面版同样有图标。
-- **点击通知**：聚焦窗口并跳到该会话。
-- 不重复打扰：重复渲染不会重弹；同一会话下次再完成会重新通知；子代理（subagent）子会话跳过。
+**宿主**订阅会话日志自身的 `session/event`，对 `turn/end` 作出反应；**浏览器**通过 SSE 收到完成事件后弹出通知。
+
+这个分工是刻意的。此前两版都试图在浏览器里读客户端投影来判断"是否跑完"，两次都静默失效：
+
+| 尝试 | 为什么从不触发 |
+|---|---|
+| `sessions.list.byId[*].running` | 0.2.x 把 `running` 放在会话对象上，列表行不再实时刷新，因此永远等不到 `true → false` 边沿。 |
+| `sessions.binding(id).session` | `binding()` 返回的是 `this.scopes.get(id)?.binding` —— 它只对**已被 retain** 的 scope 有答案，根级插件对每个会话都拿到 `undefined`。 |
+
+这些都是私有内部实现。而 `session/event` 是**文档化的**扩展点（`dsh-session` 包里写明"订阅 `session/event`"是持久化插件的做法），`turn/end` 是会话日志事件词汇表里的稳定类型。宿主还能读到会话的 header，所以标题取自事实来源，而不是 UI 投影。
+
+### 行为
+
+- **任何会话**的每一轮结束都会通知；
+- 标题 `任务完成`（该轮失败则 `任务出错`），正文带会话标题；
+- 图标是 **DeepSeek 鲸鱼**：由宿主在 `/dsh-notify/whale.svg` 提供，浏览器栅格化成 PNG（Windows 通知偏好位图）；
+- **点击通知**让外壳聚焦该会话；
+- `EventSource` 自带重连。
 
 ### 安装
 
 ```sh
-# Web 版
 dsh plugin --profile web add github:SailingBoat-ovo/dsh-notify
-
-# 桌面应用版
 dsh plugin --profile desktop add github:SailingBoat-ovo/dsh-notify
 ```
 
-或克隆后按路径安装：
+**装完必须重启 DSH** —— 宿主半边在启动时加载，只刷新页面不够。
 
-```sh
-git clone https://github.com/SailingBoat-ovo/dsh-notify
-dsh plugin --profile web add ./dsh-notify
+### 怎么排查
+
+**设置 → 通用** 里显示权限状态、**「发一条测试通知」** 按钮，以及实时连接状态：
+
+```
+连接：已连接 · 已收到 3 条完成事件
 ```
 
-**装完重启 DSH**（桌面版重启应用）。
+- 测试按钮能弹、但计数一直是 0 → 宿主插件没加载（重启 DSH）；
+- 计数在涨、但没弹窗 → 系统/浏览器在拦截通知。
 
-### 权限
+### 接口
 
-浏览器要求通知授权必须由用户手势触发，所以首次使用时 DSH 会先弹**自己的对话框**（挂在应用外壳的 overlay 层），点其中的按钮才会拉起**浏览器授权窗**。授权过一次后不再打扰。
-
-如果之前被拒绝过（`denied`），弹窗会改为说明如何恢复权限，而不是给一个按了没用的按钮。
-
-**设置 → 通用** 里还有一行状态显示 + **「发一条测试通知」** 按钮 —— 这是区分"插件没加载"和"被系统拦了"最快的方式。
-
-### 判定依据
-
-按会话 `running` 的 **true → false** 边沿触发，信号来自**两处**：会话自身的快照（0.2.x 的权威来源，`running` 挂在会话对象上）与列表行（0.1.x 的实时位）。两者若几乎同时报告同一次完成，会用按会话的冷却窗口合并成一条通知。
-
-刻意不用旧的 `completed` 标志：它的语义是"**你没在看时才置位**"，会导致一次只用一个会话时永远不弹（历史 bug）。
-
-**设置 → 通用** 会显示 `已监听 N 个会话 · 运行中 R · 已通知 K 次`，可一眼确认它是否真的在跟踪。
-
-### 兼容性
-
-同时适配 DSH `0.1.x`（Web）与 `0.2.1+`（桌面版）。移植到 0.2.x 时踩到的坑：
-
-1. `dsh.client.inject` **只能写真实存在的插件包**。0.2.x 删除了 `dsh-client-runtime` 与 `dsh-client-ui-primitives`（后者只是 seed 模块，不是插件行）；写错会导致客户端半边不被装进启动图 —— 表现是"装了但完全没反应"。
-2. 只要你调用的服务方法内部会碰 `remote.session`，`inject` 就必须包含 `remote` 与 `remote.session`：cordis 调用 traced 服务时会把 `this.ctx` 重绑到**调用方**上下文。
-3. 桌面版渲染进程在 `dsh-app://` 源下，访问不到宿主注册的 HTTP 路由 —— 资源应内联进 bundle。
+| 路径 | 用途 |
+|---|---|
+| `GET /dsh-notify/stream` | 完成事件的 `text/event-stream` |
+| `GET /dsh-notify/completions` | 最近的完成记录 + 当前序号 |
+| `GET /dsh-notify/whale.svg` | 鲸鱼图标 |
 
 ### 测试
 
@@ -134,8 +132,9 @@ npm install
 npm test
 ```
 
-测试会用假 DOM/Notification 直接加载真实客户端 bundle，覆盖：槽位注册、首帧不补弹、多会话各自弹、图标为内联 data URL、不重复、子会话跳过、点击跳转、权限被拒、行形状兼容（`id` / `sessionId`）。
+`tests/host-test.mjs`（29 项）覆盖事件映射（只有 `turn/end` 算数；标题/cwd/id 兜底；失败信息）、feed（序号单调、历史上限、解绑），以及全部路由（含 SSE 握手、推送一帧、断开解绑）。
+`tests/client-test.mjs`（20 项）覆盖两个 slot 注册、流接线、通知内容、点击跳转、权限拒绝、设置行渲染。
 
 ### 许可
 
-MIT，见 [LICENSE](LICENSE)；第三方标识说明见 [NOTICE.md](NOTICE.md)。
+MIT，见 [LICENSE](LICENSE)；第三方说明见 [NOTICE.md](NOTICE.md)。

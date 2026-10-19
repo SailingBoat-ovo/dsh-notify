@@ -64,13 +64,16 @@ const check = (l, c) => { const ok = !!c; if (!ok) failed += 1; console.log(`${o
 
 // ---- inject: no session-domain service is required at all ----
 console.log("inject:", JSON.stringify(mod.inject));
-check("inject is only slots+locale", mod.inject.join(",") === "slots,locale");
-check("no sessions service dependency", !mod.inject.includes("sessions"));
+check("injects slots, locale and uiWorkspace", mod.inject.join(",") === "slots,locale,uiWorkspace");
+check("needs uiWorkspace for click-to-open", mod.inject.includes("uiWorkspace"));
 
 // ---- apply wires the stream and the two slots ----
 const registered = [];
+const opened = [];
 const ctx = {
   effect: (fn) => { fn(); return () => {}; },
+  // Session navigation lives on the workspace service; the click handler uses it.
+  uiWorkspace: { openSession: (id) => { opened.push(id); } },
   locale: { register: () => {}, bind: () => (k, p) => (p ? `${k}:${JSON.stringify(p)}` : k) },
   slots: { inject: (key, cb) => { registered.push(key); cb(); }, register: (o, c) => { mod.__comps = mod.__comps ?? {}; mod.__comps[o.name] = c; return () => {}; } },
 };
@@ -104,7 +107,7 @@ check("failure text is in the body", notifications[1].options.body.includes("exi
 
 // ---- clicking a notice asks the shell to open that session ----
 notifications[0].onclick();
-check("click dispatches the open-session event", win.__dispatched?.detail === "s1");
+check("click opens the finished session via uiWorkspace", opened.includes("s1"));
 
 // ---- denied permission silences everything ----
 perm = "denied";

@@ -30,7 +30,10 @@ function extract(name) {
   return src.slice(start, i + 1);
 }
 
-const factory = new Function(`${extract("psQuote")}\n${extract("toastScript")}\nreturn { psQuote, toastScript };`);
+// The script builder closes over AUMID, so the test must supply it too.
+const aumidMatch = src.match(/const AUMID = ([^;]+);/);
+const aumidExpr = aumidMatch ? aumidMatch[1].replace(/process\.env\.DSH_NOTIFY_AUMID \?\?\s*/, "") : `"electron.app.DeepSeek Harness"`;
+const factory = new Function(`const AUMID = ${aumidExpr};\n${extract("psQuote")}\n${extract("toastScript")}\nreturn { psQuote, toastScript };`);
 const { toastScript } = factory();
 
 const icon = "C:\\Users\\FANCHUAN\\.dsh\\plugins\\dsh-notify\\lib\\whale.png";

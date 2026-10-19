@@ -33,7 +33,8 @@ function extract(name) {
 // The script builder closes over AUMID, so the test must supply it too.
 const aumidMatch = src.match(/const AUMID = ([^;]+);/);
 const aumidExpr = aumidMatch ? aumidMatch[1].replace(/process\.env\.DSH_NOTIFY_AUMID \?\?\s*/, "") : `"electron.app.DeepSeek Harness"`;
-const factory = new Function(`const AUMID = ${aumidExpr};\n${extract("psQuote")}\n${extract("toastScript")}\nreturn { psQuote, toastScript };`);
+const launchExpr = (src.match(/const LAUNCH_URI = ([^;]+);/) ?? [null, `"dsh://open"`])[1].replace(/process\.env\.DSH_NOTIFY_LAUNCH \?\?\s*/, "");
+const factory = new Function(`const AUMID = ${aumidExpr};\nconst LAUNCH_URI = ${launchExpr};\n${extract("psQuote")}\n${extract("toastScript")}\nreturn { psQuote, toastScript };`);
 const { toastScript } = factory();
 
 const icon = "C:\\Users\\FANCHUAN\\.dsh\\plugins\\dsh-notify\\lib\\whale.png";

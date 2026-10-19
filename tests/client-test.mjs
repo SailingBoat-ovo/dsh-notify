@@ -35,6 +35,7 @@ const doc = {
 function FakeImage() { const s = this; Object.defineProperty(this, "src", { set(v) { setTimeout(() => s.onload && s.onload(), 0); } }); }
 const win = {
   __ModuleLoader__: null, document: doc, Image: FakeImage, focus: () => {},
+  addEventListener: () => {}, removeEventListener: () => {},
   EventSource: FakeEventSource,
   CustomEvent: class CustomEvent { constructor(t, o) { this.type = t; this.detail = o?.detail; } },
   dispatchEvent: (e) => { win.__dispatched = e; },

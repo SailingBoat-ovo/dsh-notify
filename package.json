@@ -1,33 +1,33 @@
 {
-    "name":  "dsh-notify",
-    "version":  "0.1.0",
-    "description":  "DSH web plugin: system notification when a session\u0027s AI turn finishes, using the DeepSeek black whale icon (Trae-style completion report).",
-    "type":  "module",
-    "main":  "lib/index.js",
-    "exports":  {
-                    ".":  "./lib/index.js",
-                    "./client":  "./lib/client.js",
-                    "./package.json":  "./package.json"
-                },
-    "dsh":  {
-                "client":  {
-                               "platform":  "web",
-                               "inject":  [
-                                              "@deepseek-ai/dsh-client-locale",
-                                              "@deepseek-ai/dsh-client-ui-layout",
-                                              "@deepseek-ai/dsh-client-ui-settings",
-                                              "@deepseek-ai/dsh-client-ui-settings-general",
-                                              "@deepseek-ai/dsh-client-ui-workspace"
-                                          ]
-                           },
-                "bundle":  {
-                               "patch":  "./cordis.patch.yml"
-                           }
-            },
-    "files":  [
-                  "lib/index.js",
-                  "lib/client.js",
-                  "cordis.patch.yml"
-              ],
-    "license":  "MIT"
+  "name": "dsh-notify",
+  "version": "0.1.0",
+  "description": "DSH web plugin: system notification when a session's AI turn finishes, using the DeepSeek black whale icon (Trae-style completion report).",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-settings-general",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "license": "GPL-3.0-or-later"
 }

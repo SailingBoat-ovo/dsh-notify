@@ -70,7 +70,7 @@ npm test
 
 ### License
 
-MIT — see [LICENSE](LICENSE). Third-party marks: [NOTICE.md](NOTICE.md).
+GPL-3.0-or-later — see [LICENSE](LICENSE) for the full text. Third-party marks: [NOTICE.md](NOTICE.md).
 
 ---
 
@@ -137,4 +137,4 @@ npm test
 
 ### 许可
 
-MIT，见 [LICENSE](LICENSE)；第三方说明见 [NOTICE.md](NOTICE.md)。
+GPL-3.0-or-later，完整文本见 [LICENSE](LICENSE)；第三方说明见 [NOTICE.md](NOTICE.md)。
